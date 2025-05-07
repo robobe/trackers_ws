@@ -1,0 +1,17 @@
+<library path="rqt_tracker">
+    <class name="Tracking Plugin" type="rqt_tracker.tracking_plugin.TrackingPlugin" base_class_type="rqt_gui_py::Plugin">
+      <description>
+        A plugin for tracking objects in images
+      </description>
+      <qtgui>
+        <group>
+          <label>Visualization</label>
+          <icon type="theme">folder</icon>
+          <statustip>Plugins related to visualization.</statustip>
+        </group>
+        <label>Tracking Plugin</label>
+        <icon type="theme">camera-photo</icon>
+        <statustip>A plugin for tracking objects in images.</statustip>
+      </qtgui>
+    </class>
+  </library>
