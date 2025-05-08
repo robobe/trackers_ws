@@ -12,6 +12,8 @@ import cv2
 from functools import partial
 
 WINDOW_NAME = "tracker"
+TRACK_WIDTH_NAME = "Width"
+TRACK_HEIGHT_NAME = "Height"
 
 class ImageClickDetector(Node):
 
@@ -28,9 +30,9 @@ class ImageClickDetector(Node):
         self.tracker_result = None
         cv2.namedWindow(WINDOW_NAME)
         cv2.setMouseCallback(WINDOW_NAME, self.on_mouse_click)
-        cv2.createTrackbar("Width", WINDOW_NAME, 50, 100, partial(self.change_gate_size, "W"))
-        cv2.createTrackbar("Height", WINDOW_NAME, 50, 100, partial(self.change_gate_size, "H"))
-        self.timer = self.create_timer(0.05, self.display_image)
+        cv2.createTrackbar(TRACK_WIDTH_NAME, WINDOW_NAME, 50, 100, partial(self.change_gate_size, "W"))
+        cv2.createTrackbar(TRACK_HEIGHT_NAME, WINDOW_NAME, 50, 100, partial(self.change_gate_size, "H"))
+        # self.timer = self.create_timer(0.05, self.display_image)
 
     def change_gate_size(self, t, x):
         self.get_logger().info(f"{t}: {x}")
@@ -41,6 +43,7 @@ class ImageClickDetector(Node):
     def image_callback(self, msg):
         try:
             self.last_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            self.display_image()
         except Exception as e:
             self.get_logger().error(f"cv_bridge error: {e}")
 
@@ -65,25 +68,24 @@ class ImageClickDetector(Node):
             p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
             cv2.rectangle(self.last_image, p1, p2, (255,0,0), 2, 1)
 
-        if self.last_image is not None:
-            cv2.imshow(WINDOW_NAME, self.last_image)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):  # Quit on pressing 'q'
-                self.get_logger().info("Exiting...")
-                rclpy.shutdown()
-                cv2.destroyAllWindows()
-            elif key == ord('s'):  # Example: Save image on pressing 's'
-                if self.last_image is not None:
-                    cv2.imwrite('saved_image.jpg', self.last_image)
-                    self.get_logger().info("Image saved as 'saved_image.jpg'")
-            elif key == 82:  # Up arrow key
-                self.get_logger().info("Up arrow key pressed")
-            elif key == 81:  # Left arrow key
-                self.get_logger().info("Left arrow key pressed")
-            elif key == 84:  # Down arrow key
-                self.get_logger().info("Down arrow key pressed")
-            elif key == 83:  # Right arrow key
-                self.get_logger().info("Right arrow key pressed")
+        cv2.imshow(WINDOW_NAME, self.last_image)
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):  # Quit on pressing 'q'
+            self.get_logger().info("Exiting...")
+            rclpy.shutdown()
+            cv2.destroyAllWindows()
+        elif key == ord('s'):  # Example: Save image on pressing 's'
+            if self.last_image is not None:
+                cv2.imwrite('saved_image.jpg', self.last_image)
+                self.get_logger().info("Image saved as 'saved_image.jpg'")
+        elif key == 82:  # Up arrow key
+            self.get_logger().info("Up arrow key pressed")
+        elif key == 81:  # Left arrow key
+            self.get_logger().info("Left arrow key pressed")
+        elif key == 84:  # Down arrow key
+            self.get_logger().info("Down arrow key pressed")
+        elif key == 83:  # Right arrow key
+            self.get_logger().info("Right arrow key pressed")
 
     def on_mouse_click(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -96,11 +98,14 @@ class ImageClickDetector(Node):
         msg.header.frame_id = "camera_frame"
 
         # Bounding box centered at click
+        width = cv2.getTrackbarPos(TRACK_WIDTH_NAME, WINDOW_NAME)
+        height = cv2.getTrackbarPos(TRACK_HEIGHT_NAME, WINDOW_NAME)
+
+        msg.bbox.center.position.x = float(int(x + width/2))
+        msg.bbox.center.position.y = float(int(y + height/2))
+        msg.bbox.size_x = float(width)
+        msg.bbox.size_y = float(height)
         
-        msg.bbox.center.position.x = x + 100/2
-        msg.bbox.center.position.y = y + 100/2
-        msg.bbox.size_x = float(100)
-        msg.bbox.size_y = float(100)
 
 
 
