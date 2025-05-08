@@ -29,4 +29,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-humble-rqt-common-plugins \
         ros-humble-vision-msgs \
         ros-humble-rqt-image-overlay \
-  && rm -rf /var/lib/apt/lists/*    
+  && rm -rf /var/lib/apt/lists/*
+
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    iproute2 \
+  && rm -rf /var/lib/apt/lists/*

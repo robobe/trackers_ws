@@ -109,8 +109,8 @@ class Tracker(Node):
         if success:
             x, y, w, h = [int(v) for v in bbox]
             cv2.rectangle(cv_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.imshow("debug", cv_image)
-            cv2.waitKey(1)
+            # cv2.imshow("debug", cv_image)
+            # cv2.waitKey(1)
             # Publish tracking result
             result = Detection2D()
             result.header = msg.header  # Use image header
