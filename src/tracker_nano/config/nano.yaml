@@ -1,0 +1,4 @@
+/nano_tracker_node:
+  ros__parameters:
+    nanotrack_backbone_path: "/workspace/src/tracker_nano/tracker_nano/models/nanotrack_backbone_sim.onnx"
+    nanotrack_head_path: "/workspace/src/tracker_nano/tracker_nano/models/nanotrack_head_sim.onnx"

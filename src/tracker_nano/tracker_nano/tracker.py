@@ -2,62 +2,90 @@
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import qos_profile_system_default
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
 from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose
+import pathlib
 
-
-
+NANO_TRACKER_ID = 1
 TOPIC_CAMERA = "video"
 TOPIC_TRACK_REQUEST = "track_request"
 TOPIC_TRACK_RESULT = "track_result"
 
+PARAM_NANOTRACK_BACKBONE_PATH = "nanotrack_backbone_path"
+PARAM_NANOTRACK_HEAD_PATH = "nanotrack_head_path"
+
+
+NODE_NAME = "nano_tracker_node"
+
 class Tracker(Node):
     def __init__(self):
-        super().__init__('image_viewer')
+        super().__init__(NODE_NAME)
         
-       
-        #TODO: create on init or for each tracking request
+        self.get_logger().info(f'{self.get_name()} started')
+        self.init_parameters()
         self.tracker = self.create_tracker()
         self.tracking_active = False
         self.tracking_request = False
         self.detection = None
         # Initialize CV bridge
         self.cv_bridge = CvBridge()
+        
         self.init_publishers()
         self.init_subscribers()
-        self.get_logger().info('Image viewer node started')
+        self.get_logger().info(f'{self.get_name()} started')
 
     #region private
+    def init_parameters(self):
+        """
+        init node parameters
+        """
+        self.declare_parameter(PARAM_NANOTRACK_BACKBONE_PATH, "")
+        self.declare_parameter(PARAM_NANOTRACK_HEAD_PATH, "")
+
     def init_publishers(self):
+        """
+        init publishers
+        - tracker result
+        """
         self.track_pub = self.create_publisher(
             Detection2D,
             TOPIC_TRACK_RESULT,
-            10)
+            qos_profile=qos_profile_system_default)
         
     def init_subscribers(self):
-         # Create subscriber
+        """
+        init subscribers
+        - images
+        - track request
+        """
         self.img_sub = self.create_subscription(
             Image,
             TOPIC_CAMERA,  # Topic name to subscribe to
             self.image_callback,
-            10)
+            qos_profile=qos_profile_system_default)
         
         self.track_sub = self.create_subscription(
             Detection2D,
             TOPIC_TRACK_REQUEST,
             self.track_callback,
-            10)
+            qos_profile=qos_profile_system_default)
         
     def create_tracker(self):
         # Create tracker object
         params = cv2.TrackerNano.Params()
         # v2
-        params.backbone = "/workspace/src/tracker_nano/tracker_nano/models/nanotrack_backbone_sim.onnx"
-        params.neckhead = "/workspace/src/tracker_nano/tracker_nano/models/nanotrack_head_sim.onnx"
+        params.backbone = self.get_parameter(PARAM_NANOTRACK_BACKBONE_PATH).value
+        params.neckhead = self.get_parameter(PARAM_NANOTRACK_HEAD_PATH).value #"/workspace/src/tracker_nano/tracker_nano/models/nanotrack_head_sim.onnx"
 
+
+        if not pathlib.Path((params.backbone)).exists() or not pathlib.Path((params.neckhead)).exists():
+            self.get_logger().error("Tracker models not found, check parameters or param file")
+            raise Exception("Failed to init tracker")
         
+        self.get_logger().info(f"------- Create tracker with models: {params.neckhead}\n{params.neckhead}")
         params.backend = cv2.dnn.DNN_BACKEND_DEFAULT
         params.target  = cv2.dnn.DNN_TARGET_CPU
 
@@ -78,11 +106,15 @@ class Tracker(Node):
             self.tracking_active = False
             self.get_logger().info('Received stop tracking request')
 
-    def image_callback(self, msg: Image):
+    def image_callback(self, img_msg: Image):
+        """
+        handler images message
+        if tracker work , update result
+        """
         if not self.tracking_active:
             return
         
-        cv_image = self.cv_bridge.imgmsg_to_cv2(msg)
+        cv_image = self.cv_bridge.imgmsg_to_cv2(img_msg)
         if self.tracking_request:
             # Initialize tracker with first bbox
             bbox = (
@@ -105,23 +137,20 @@ class Tracker(Node):
                     
 
         success, bbox = self.tracker.update(cv_image)
-        self.get_logger().info("---")
         if success:
             x, y, w, h = [int(v) for v in bbox]
-            cv2.rectangle(cv_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            # cv2.imshow("debug", cv_image)
-            # cv2.waitKey(1)
-            # Publish tracking result
             result = Detection2D()
-            result.header = msg.header  # Use image header
+            result.header = img_msg.header  # Use image header
+            result.header.stamp = img_msg.header.stamp
             result.bbox.center.position.x = x + w/2
             result.bbox.center.position.y = y + h/2
             result.bbox.size_x = float(w)
             result.bbox.size_y = float(h)
 
+            result.id = NANO_TRACKER_ID
             # Add tracking score
             hypothesis = ObjectHypothesisWithPose()
-            hypothesis.hypothesis.class_id = "tracked_object"
+            hypothesis.hypothesis.class_id = "nano"
             hypothesis.hypothesis.score = float(self.tracker.getTrackingScore())  # Get score from NanoTracker
             result.results.append(hypothesis)
             
