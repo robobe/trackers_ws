@@ -1,0 +1,13 @@
+session_name: nano
+windows:
+  - window_name: nao
+    layout: tiled
+    suppress_history: false
+    shell_command_before:
+      - source /opt/ros/humble/setup.bash
+    panes:
+      - shell_command: #
+          - ros2 launch tracker_tester run.launch.py
+          
+      - shell_command:
+          - ros2 run tracker_tester view_tracker.py

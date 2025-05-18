@@ -1,3 +1,3 @@
 #!/bin/sh
 
-alias run="ros2 launch tracker_tester run.launch.py"
+alias run="tmuxp load /workspace/src/tracker_nano/tmux_script/run.yaml"

@@ -9,7 +9,7 @@ import cv2
 from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose
 import pathlib
 
-NANO_TRACKER_ID = 1
+NANO_TRACKER_ID = "1"
 TOPIC_CAMERA = "video"
 TOPIC_TRACK_REQUEST = "track_request"
 TOPIC_TRACK_RESULT = "track_result"
@@ -42,8 +42,8 @@ class Tracker(Node):
         """
         init node parameters
         """
-        self.declare_parameter(PARAM_NANOTRACK_BACKBONE_PATH, "")
-        self.declare_parameter(PARAM_NANOTRACK_HEAD_PATH, "")
+        self.declare_parameter(PARAM_NANOTRACK_BACKBONE_PATH, "/workspace/src/tracker_nano/tracker_nano/models/nanotrack_backbone_sim.onnx")
+        self.declare_parameter(PARAM_NANOTRACK_HEAD_PATH, "/workspace/src/tracker_nano/tracker_nano/models/nanotrack_head_sim.onnx")
 
     def init_publishers(self):
         """
