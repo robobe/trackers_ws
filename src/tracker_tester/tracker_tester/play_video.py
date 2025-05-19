@@ -60,7 +60,7 @@ class VideoPlayer(Node):
          # Declare parameters
         self.declare_parameter(
             'video_path',
-            '/workspace/src/tracker_tester/data/vtest.avi',
+            '/workspace/src/tracker_tester/data/Car_Chase2.mp4',
             ParameterDescriptor(description='Path to the video file to play')
         )
         self.declare_parameter(

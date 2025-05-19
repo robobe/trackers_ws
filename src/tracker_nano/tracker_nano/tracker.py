@@ -2,12 +2,16 @@
 
 import rclpy
 from rclpy.node import Node
+from rclpy.time import Time
+
 from rclpy.qos import qos_profile_system_default
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
 from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose
 import pathlib
+
+from image_cache import ThreadSafeFixedCache
 
 NANO_TRACKER_ID = "1"
 TOPIC_CAMERA = "video"
@@ -23,7 +27,7 @@ NODE_NAME = "nano_tracker_node"
 class Tracker(Node):
     def __init__(self):
         super().__init__(NODE_NAME)
-        
+        self.cache = ThreadSafeFixedCache(capacity=1000)
         self.get_logger().info(f'{self.get_name()} started')
         self.init_parameters()
         self.tracker = self.create_tracker()
@@ -111,12 +115,25 @@ class Tracker(Node):
         handler images message
         if tracker work , update result
         """
+        cv_image = self.cv_bridge.imgmsg_to_cv2(img_msg)
+        key = Time.from_msg(img_msg.header.stamp).nanoseconds
+        self.cache.put(key, cv_image)
+        
+
         if not self.tracking_active:
             return
         
-        cv_image = self.cv_bridge.imgmsg_to_cv2(img_msg)
+        
+
         if self.tracking_request:
-            # Initialize tracker with first bbox
+            key = Time.from_msg(self.detection.header.stamp).nanoseconds
+            image_from_cache = self.cache.get(key)
+            
+
+            self.get_logger().info(f'msg: {Time.from_msg(img_msg.header.stamp)} -- {Time.from_msg(self.detection.header.stamp)}')
+            delta = Time.from_msg(img_msg.header.stamp) - Time.from_msg(self.detection.header.stamp)
+            self.get_logger().info(f"{delta.nanoseconds} ns, {delta.nanoseconds/1e6} ms")
+
             bbox = (
                 int(self.detection.bbox.center.position.x - self.detection.bbox.size_x/2),
                 int(self.detection.bbox.center.position.y - self.detection.bbox.size_y/2),
@@ -124,17 +141,18 @@ class Tracker(Node):
                 int(self.detection.bbox.size_y)
             )
             
-            self.get_logger().info(f"{cv_image.shape}")
-            self.get_logger().info(f"{bbox}")
 
             try:
-                self.tracker.init(cv_image, bbox)
+                self.tracker.init(image_from_cache, bbox)
             except:
                 self.get_logger().error('Failed to initialize tracker')
                 self.tracking_active = False
                 return
             self.tracking_request = False
                     
+            for k, image in self.cache.iterate_from_key(key, skip_first=True):
+                success, bbox = self.tracker.update(image)
+                self.get_logger().info(f"{Time.from_msg(img_msg.header.stamp)} - {k}:, {self.tracker.getTrackingScore()}")
 
         success, bbox = self.tracker.update(cv_image)
         if success:

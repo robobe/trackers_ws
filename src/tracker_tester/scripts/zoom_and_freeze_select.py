@@ -70,6 +70,16 @@ while True:
 
         if box_ready and box:
             x, y, w, h = box
+            if allow_zoom:
+                scale_x = 0.5 #(x2 - x1) / w
+                scale_y = 0.5 #(y2 - y1) / h
+                x = int(x1 + x * scale_x)
+                y = int(y1 + y * scale_y)
+                w = int(w * scale_x)
+                h = int(h * scale_y)
+                allow_zoom = False
+                box = x,y,w,h
+            
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
             
         cv2.imshow("Live", frame)
