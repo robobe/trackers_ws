@@ -99,16 +99,17 @@ class Tracker(Node):
 
     #region handlers
     def track_callback(self, msg: Detection2D):
-        """Callback for receiving tracking requests"""
-        if not self.tracking_active:
+        if msg.bbox.center.position.x == msg.bbox.center.position.y == -1.0:
+            self.detection = None
+            self.tracking_active = False
+            self.get_logger().info('Received stop tracking request')
+        elif not self.tracking_active:
             self.detection = msg
             self.tracking_active = True
             self.tracking_request = True
             self.get_logger().info('Received tracking request')
-        else:
-            self.detection = None
-            self.tracking_active = False
-            self.get_logger().info('Received stop tracking request')
+        
+            
 
     def image_callback(self, img_msg: Image):
         """

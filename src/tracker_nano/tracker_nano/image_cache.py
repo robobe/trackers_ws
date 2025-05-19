@@ -37,7 +37,7 @@ class ThreadSafeFixedCache:
             if start_key not in self.cache:
                 raise KeyError(f"{start_key} not in cache")
             found = False
-            items = self.cache.items()
+            items = list(self.cache.items())
             if skip_last:
                 items = items[:-1]
 

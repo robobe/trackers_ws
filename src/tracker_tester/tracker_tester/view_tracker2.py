@@ -139,6 +139,9 @@ class ImageClickDetector(Node):
 
         cv2.imshow(WINDOW_NAME, self.frame)
         key = cv2.waitKey(1) & 0xFF
+        if key == ord(' '):  # release tracking
+            self.publish_detection(-1,-1,0,0)
+
         if key == ord('q'):  # Quit on pressing 'q'
             self.get_logger().info("Exiting...")
             rclpy.shutdown()
@@ -225,7 +228,7 @@ class ImageClickDetector(Node):
         # msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.stamp = self.working_stamp
         msg.header.frame_id = "camera_frame"
-
+        
         # Bounding box centered at click
         # width = cv2.getTrackbarPos(TRACK_WIDTH_NAME, WINDOW_NAME)
         # height = cv2.getTrackbarPos(TRACK_HEIGHT_NAME, WINDOW_NAME)
