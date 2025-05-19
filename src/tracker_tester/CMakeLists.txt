@@ -15,6 +15,7 @@ ament_python_install_package(${PROJECT_NAME})
 set(NODES
   tracker_tester/play_video.py
   tracker_tester/view_tracker.py
+  tracker_tester/view_tracker2.py
 )
 
 
