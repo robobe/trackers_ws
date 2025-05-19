@@ -116,24 +116,20 @@ class Tracker(Node):
         if tracker work , update result
         """
         cv_image = self.cv_bridge.imgmsg_to_cv2(img_msg)
+        # put image in cache with timestamp as key
         key = Time.from_msg(img_msg.header.stamp).nanoseconds
         self.cache.put(key, cv_image)
         
-
         if not self.tracking_active:
             return
         
-        
-
         if self.tracking_request:
+            # get tracker request timestamp
             key = Time.from_msg(self.detection.header.stamp).nanoseconds
+            # get history image from cache
+            #TODO: handler if not found
             image_from_cache = self.cache.get(key)
             
-
-            self.get_logger().info(f'msg: {Time.from_msg(img_msg.header.stamp)} -- {Time.from_msg(self.detection.header.stamp)}')
-            delta = Time.from_msg(img_msg.header.stamp) - Time.from_msg(self.detection.header.stamp)
-            self.get_logger().info(f"{delta.nanoseconds} ns, {delta.nanoseconds/1e6} ms")
-
             bbox = (
                 int(self.detection.bbox.center.position.x - self.detection.bbox.size_x/2),
                 int(self.detection.bbox.center.position.y - self.detection.bbox.size_y/2),
@@ -143,6 +139,7 @@ class Tracker(Node):
             
 
             try:
+                # init tracker with image from cache and request bbox
                 self.tracker.init(image_from_cache, bbox)
             except:
                 self.get_logger().error('Failed to initialize tracker')
@@ -150,9 +147,10 @@ class Tracker(Node):
                 return
             self.tracking_request = False
                     
-            for k, image in self.cache.iterate_from_key(key, skip_first=True):
+            # iterate over cache to fast forward to current time
+            # skip  last item and the first found item
+            for k, image in self.cache.iterate_from_key(key, skip_first=True, skip_last=True):
                 success, bbox = self.tracker.update(image)
-                self.get_logger().info(f"{Time.from_msg(img_msg.header.stamp)} - {k}:, {self.tracker.getTrackingScore()}")
 
         success, bbox = self.tracker.update(cv_image)
         if success:

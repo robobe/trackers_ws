@@ -29,14 +29,19 @@ class ThreadSafeFixedCache:
 
     def items(self):
         with self.lock:
+            #TODO: make it optimal don't return list
             return list(self.cache.items())
         
-    def iterate_from_key(self, start_key, skip_first=False):
+    def iterate_from_key(self, start_key, skip_first=False, skip_last=False):
         with self.lock:
             if start_key not in self.cache:
                 raise KeyError(f"{start_key} not in cache")
             found = False
-            for key, value in self.cache.items():
+            items = self.cache.items()
+            if skip_last:
+                items = items[:-1]
+
+            for key, value in items:
                 if key == start_key:
                     found = True
                 if found and not skip_first:
