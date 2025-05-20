@@ -12,6 +12,7 @@ import cv2
 from functools import partial
 from typing import NamedTuple
 from threading import Event
+from datetime import datetime, timedelta
 
 # Example usage of NamedTuple for a bounding box
 class BBox(NamedTuple):
@@ -20,12 +21,42 @@ class BBox(NamedTuple):
     w: int
     h: int
 
+
+class TimedData:
+    def __init__(self, period_ms: float):
+        self.period = period_ms
+        self.valid_until = datetime.now()
+        self.data = None
+    
+    def __call__(self, *args, **kwds):
+        return self.get()
+    
+    def get(self):
+        if datetime.now() <= self.valid_until:
+            return self.data
+        return None
+
+    def set(self, data):
+        self.data = data
+        self.valid_until = datetime.now() + timedelta(milliseconds=self.period)
+
+    @property
+    def is_valid(self):
+        return datetime.now() <= self.valid_until
+    
+    @property
+    def has_data(self):
+        return datetime.now() <= self.valid_until and self.data is not None
+
 # You can create a bounding box like this:
 # bbox = BBox(x=10, y=20, w=100, h=50)
 
 WINDOW_NAME = "tracker"
 TRACK_WIDTH_NAME = "Width"
 TRACK_HEIGHT_NAME = "Height"
+ADJ_OFFSET = 30
+GATE_OFFSET = 10
+FPS = 20
 
 class ImageClickDetector(Node):
 
@@ -43,7 +74,8 @@ class ImageClickDetector(Node):
 
         self.working_stamp = None # TODO: use this to publish the image, think about save the image message
         self.original_frame = None
-        self.tracker_result = None
+        self.tracker_result = TimedData(100)#(1/FPS)*1000)
+        
         self.freeze_image = None
         self.freeze_image_stamp = None
         self.frame = None
@@ -63,13 +95,13 @@ class ImageClickDetector(Node):
         self.get_logger().info(f"{t}: {x}")
 
     def tracker_callback(self, msg: Detection2D):
-        self.tracker_result = msg
+        self.tracker_result.set(msg)
         self.event.set()
         self.event.clear()
 
     def image_callback(self, msg: Image):
         try:
-            self.event.wait(1/20)
+            self.event.wait(1/FPS)
             self.last_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.last_image_stamp = msg.header.stamp
             self.display_image()
@@ -77,18 +109,15 @@ class ImageClickDetector(Node):
             self.get_logger().error(f"cv_bridge error: {e}")
 
     def display_image(self):
-        if self.tracker_result is not None:
-            t_key = Time.from_msg(self.tracker_result.header.stamp).nanoseconds
-            i_key = Time.from_msg(self.last_image_stamp).nanoseconds
-            delta = i_key - t_key
-            self.get_logger().info(f"{t_key} -- {i_key} ")
+        if self.tracker_result.has_data:
+            result: Detection2D = self.tracker_result()
             bbox = (
-                int(self.tracker_result.bbox.center.position.x - self.tracker_result.bbox.size_x/2),
-                int(self.tracker_result.bbox.center.position.y - self.tracker_result.bbox.size_y/2),
-                int(self.tracker_result.bbox.size_x),
-                int(self.tracker_result.bbox.size_y)
+                int(result.bbox.center.position.x - result.bbox.size_x/2),
+                int(result.bbox.center.position.y - result.bbox.size_y/2),
+                int(result.bbox.size_x),
+                int(result.bbox.size_y)
             )
-            score = self.tracker_result.results[0].hypothesis.score
+            score = result.results[0].hypothesis.score
             score = int(score*100)
             
             p1 = (int(bbox[0]), int(bbox[1]))
@@ -100,7 +129,6 @@ class ImageClickDetector(Node):
             cv2.putText(self.last_image, str(score), text_location, font, font_scale, font_color, thickness, cv2.LINE_AA)
             p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
             cv2.rectangle(self.last_image, p1, p2, (255,0,0), 2, 1)
-            self.tracker_result = None
 
         
         self.original_frame = self.last_image.copy()
@@ -165,12 +193,22 @@ class ImageClickDetector(Node):
                 self.get_logger().info("Image saved as 'saved_image.jpg'")
         elif key == 82:  # Up arrow key
             self.get_logger().info("Up arrow key pressed")
+            self.re_track_request(y=-ADJ_OFFSET)
         elif key == 81:  # Left arrow key
             self.get_logger().info("Left arrow key pressed")
+            self.re_track_request(x=-ADJ_OFFSET)
         elif key == 84:  # Down arrow key
             self.get_logger().info("Down arrow key pressed")
+            self.re_track_request(y=ADJ_OFFSET)
         elif key == 83:  # Right arrow key
             self.get_logger().info("Right arrow key pressed")
+            self.re_track_request(x=ADJ_OFFSET)
+        elif key == ord("1"):
+            self.get_logger().info("Gate resize -")
+            self.re_track_request(g=-GATE_OFFSET)
+        elif key == ord("2"):
+            self.get_logger().info("Gate resize +")
+            self.re_track_request(g=GATE_OFFSET)
 
     def on_mouse_click(self, event, x, y, flags, param):
         # if event == cv2.EVENT_LBUTTONDOWN:
@@ -179,6 +217,7 @@ class ImageClickDetector(Node):
         if event == cv2.EVENT_LBUTTONDOWN:
             self.drawing = True
             self.sx, self.sy = x, y
+            self.ex, self.ey = x, y
             self.box_ready = False
 
         elif event == cv2.EVENT_MOUSEMOVE:
@@ -215,13 +254,25 @@ class ImageClickDetector(Node):
                 h = self.box[3]
                 self.get_logger().info(f"unZoomed box: {x}, {y}, {w}, {h}")
 
-            self.publish_detection(x, y, w, h)
+            self.publish_detection(x+w//2, y+h//2, w, h)
                 
                 
                 
                 
             
+    def re_track_request(self,x=0, y=0, g=0):
+        if not self.tracker_result.has_data:
+            self.get_logger().warning("no tracking data, exit retract")
+            return
+        
+        result: Detection2D = self.tracker_result()
 
+        # TODO: add limits
+        x = result.bbox.center.position.x + x
+        y = result.bbox.center.position.y + y
+        w = result.bbox.size_x + g
+        h = result.bbox.size_y + g
+        self.publish_detection(x, y, w, h)
 
     def publish_detection(self, x, y ,w ,h):
         msg = Detection2D()
@@ -260,3 +311,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+    
