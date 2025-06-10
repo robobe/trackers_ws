@@ -13,7 +13,6 @@ services:
         reservations:
           devices:
             - capabilities: [gpu]
-    runtime: nvidia
     hostname: dev
     extra_hosts:
       - "dev:127.0.0.1"
