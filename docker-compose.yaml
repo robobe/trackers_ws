@@ -6,7 +6,7 @@ services:
     user: "user:user"
     volumes:
       - .:/workspace:cached
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /home/user/opencv/build:/opencv:ro
     deploy:
       resources:
