@@ -64,9 +64,18 @@ RUN sudo add-apt-repository universe \
     ros-humble-ament-* \
   && rm -rf /var/lib/apt/lists/*
 
-
+# cv_bridge
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-all-dev \
     libboost-python-dev \
     python3-dev \
   && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-vision-msgs \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install OpenCV
+COPY /home/user/opencv/build/OpenCV*.deb /tmp
+RUN cd /tmp && apt update && apt install -y ./OpenCV*.deb \
+  && rm -rf /tmp/OpenCV*.deb

@@ -1,5 +1,8 @@
 ```
-colcon build --packages-up-to cv_bridge --cmake-args -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda
+colcon build --packages-up-to cv_bridge \
+--cmake-args \
+  -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda \
+  -DCMAKE_INCLUDE_PATH=/usr/include/opencv4/
 ```
 
 ```
