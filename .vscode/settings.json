@@ -5,5 +5,17 @@
           "icon": "terminal-bash",
           "args": ["--rcfile", "env.sh"]
       }
-  }
+  },
+   "python.autoComplete.extraPaths": [
+        "${workspaceFolder}/",
+        "/opt/ros/humble/lib/python3.10/site-packages/",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+
+    ],
+
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/",
+        "/opt/ros/humble/lib/python3.10/site-packages/",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages/"
+    ]
 }

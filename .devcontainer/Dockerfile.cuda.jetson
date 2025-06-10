@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.0-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:12.6.0-cudnn-devel-ubuntu22.04
 
 
 ARG USERNAME=user
@@ -62,4 +62,11 @@ RUN sudo add-apt-repository universe \
     ros-dev-tools \
     python3-colcon-clean \
     ros-humble-ament-* \
+  && rm -rf /var/lib/apt/lists/*
+
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libboost-all-dev \
+    libboost-python-dev \
+    python3-dev \
   && rm -rf /var/lib/apt/lists/*

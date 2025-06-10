@@ -1,3 +1,6 @@
+```
+colcon build --packages-up-to cv_bridge --cmake-args -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda
+```
 
 ```
 ros2 topic pub --once /track_request vision_msgs/msg/Detection2D "{

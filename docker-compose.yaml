@@ -15,6 +15,8 @@ services:
             - capabilities: [gpu]
     runtime: nvidia
     hostname: dev
+    extra_hosts:
+      - "dev:127.0.0.1"
     network_mode: host
     stdin_open: true
     tty: true
