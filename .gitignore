@@ -3,3 +3,4 @@ log/
 install/
 opencv/
 *.pyc
+opencv_debs

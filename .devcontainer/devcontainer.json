@@ -2,7 +2,7 @@
     "name": "trackers",
     "dockerComposeFile": [
       "../docker-compose.yaml",
-      "../docker-compose.jetson.yaml"
+      // "../docker-compose.jetson.yaml"
     ],
     "service": "dev",
     "shutdownAction": "stopCompose",
