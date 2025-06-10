@@ -2,7 +2,7 @@ services:
   dev:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile.cuda.jetson
+      dockerfile: .devcontainer/Dockerfile
     user: "user:user"
     volumes:
       - .:/workspace:cached

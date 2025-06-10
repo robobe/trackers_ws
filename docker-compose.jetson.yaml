@@ -1,5 +1,8 @@
 services:
   dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile.cuda.jetson
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
