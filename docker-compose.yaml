@@ -2,7 +2,7 @@ services:
   dev:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile.cuda.jetson
+      dockerfile: .devcontainer/Dockerfile
     user: "user:user"
     volumes:
       - .:/workspace:cached
@@ -13,7 +13,6 @@ services:
         reservations:
           devices:
             - capabilities: [gpu]
-    runtime: nvidia
     hostname: dev
     extra_hosts:
       - "dev:127.0.0.1"
