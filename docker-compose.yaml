@@ -2,11 +2,18 @@ services:
   dev:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile
+      dockerfile: .devcontainer/Dockerfile.cuda.jetson
     user: "user:user"
     volumes:
       - .:/workspace:cached
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - /home/user/opencv/build:/opencv:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia
     hostname: dev
     network_mode: host
     stdin_open: true
@@ -14,6 +21,8 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     devices:
       - /dev/dri:/dev/dri
     privileged: true
