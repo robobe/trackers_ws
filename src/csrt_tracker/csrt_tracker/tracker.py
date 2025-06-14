@@ -59,10 +59,11 @@ class Tracker(TrackerBase):
             self.get_logger().info('Received stop tracking request')
         
         else:
+            key = Time.from_msg(msg.header.stamp).nanoseconds
             self.tracking_request_msg = msg
             self.tracking_active = True
             self.tracking_first_time_request = True
-            self.get_logger().info('Received tracking request')
+            self.get_logger().info(f'Received tracking request on key: {key}')
 
     def _image_callback(self, img_msg: Image):
         """
@@ -109,16 +110,12 @@ class Tracker(TrackerBase):
                 self.get_logger().error("Tracker fail to initialize exit tracking")
                 return
             
-            # iterate over cache to fast forward to current time
-            # skip  last item and the first found item
-
-            debug_counter = 0
-            for k, image in self.cache.iterate_from_key(key, skip_first=True, skip_last=True):
-                debug_counter += 1
-                if debug_counter % self.cache_skip_size != 0:
-                    continue
-                self.get_logger().info(f"Fast forwarding to key: {debug_counter}")
-                success, bbox = self.tracker.update(image)
+            success, bbox = self._run_fast_forward(key)
+            if not success:
+                self.get_logger().error(f"Tracker fail to fast forward (current key: {key})")
+                # TODO: think about exit tracking
+                # self.tracking_active = False
+                # return
 
         success, bbox = self.tracker.update(cv_image)
         # TODO: when tracker return success False ?
@@ -126,6 +123,7 @@ class Tracker(TrackerBase):
             x, y, w, h = [int(v) for v in bbox]
             keep_last, w, h = self.tracker_gate_size_keeper( w, h)
             if keep_last:
+                self.get_logger().warning(f"Keeping last tracker gate size on key {key}")
                 self.self_tracking_request(img_msg.header.stamp, x, y, w, h)
 
             self.last_bbox_width = w

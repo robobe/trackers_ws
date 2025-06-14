@@ -63,6 +63,7 @@ class ThreadSafeFixedCache:
             # if skip_last:
             #     items = items[:-1]
 
+            index = 0
             for index, item in enumerate(items):
                 if skip_last and index == len(items) - 1:
                     break
@@ -71,7 +72,7 @@ class ThreadSafeFixedCache:
                 if key == start_key:
                     found = True
                 if found and not skip_first:
-                    yield key, value
+                    yield index, key, value
                 elif found and skip_first:
                     skip_first = False
 

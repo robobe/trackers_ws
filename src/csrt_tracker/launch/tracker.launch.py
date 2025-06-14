@@ -20,7 +20,6 @@ def generate_launch_description():
     node = Node(
         package=PKG,
         executable='tracker.py',
-        name='tracker',
         output='screen',
         parameters=[config_file])
 

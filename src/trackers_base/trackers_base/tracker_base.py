@@ -76,3 +76,30 @@ class TrackerBase(Node):
         # TODO: split to tracker first time request and update
         """
         raise NotImplementedError("Subclasses must implement this method.")
+    
+    def _run_fast_forward(self, key: int):
+        """
+        Run fast forward from a specific key.
+        This method should be overridden in subclasses to implement specific fast forward logic.
+        """
+        # iterate over cache to fast forward to current time
+            # skip  last item and the first found item
+
+        last_updated_index = 0
+        success = False
+        bbox = None
+        index = 0
+        for index, k, image in self.cache.iterate_from_key(key, skip_first=True, skip_last=True):
+            index += 1
+            if index % self.cache_skip_size != 0:
+                continue
+            self.get_logger().info(f"Fast forwarding to key in index: {index}")
+            success, bbox = self.tracker.update(image)
+            last_updated_index = index
+        else:
+            # TODO: check if this part is needed because the net step is update the current image (last one)
+            if last_updated_index < index:
+                self.get_logger().info(f"Update key in last index: {index}")
+                success, bbox = self.tracker.update(image)
+
+        return success, bbox
