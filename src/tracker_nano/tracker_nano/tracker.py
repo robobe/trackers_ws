@@ -11,7 +11,7 @@ import cv2
 from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose, Detection2DArray
 import pathlib
 
-from image_cache import ThreadSafeFixedCache
+from trackers_base.image_cache import ThreadSafeFixedCache
 
 NANO_TRACKER_ID = "1"
 NANO_TRACKER_NAME = "nano"
