@@ -8,12 +8,12 @@ from rclpy.qos import qos_profile_system_default
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
-from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose, Detection2DArray
-import pathlib
+from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose
+from builtin_interfaces.msg import Time as MsgTime
 
 # from image_cache import ThreadSafeFixedCache
-
-NANO_TRACKER_ID = "2"
+MAX_GATE_SIZE_CHANGE_BETWEEN_TRACKING_RESULT = 5
+TRACKER_ID = "2"
 TRACKER_NAME = "csrt"
 
 TOPIC_CAMERA = "video"
@@ -79,6 +79,10 @@ class Tracker(Node):
             qos_profile=qos_profile_system_default)
         
     def create_tracker(self):
+        """
+        create tracker instance
+        using CSRT tracker with custom parameters"""
+        #TODO: add csrt parameters to node parameters
         params = cv2.TrackerCSRT.Params()
         params.scale_lr = 0.5
         tracker = cv2.TrackerCSRT.create(params)
@@ -87,7 +91,12 @@ class Tracker(Node):
 
     #region handlers
     def track_callback(self, msg: Detection2D):
-        if msg.bbox.center.position.x == msg.bbox.center.position.y == -1.0:
+        """
+        handler track request message
+        for now because using Detection2D msg if bbox center is (-1,-1) then stop tracking
+        """
+        DISABLE_TRACKING_REQUEST = -1.0
+        if msg.bbox.center.position.x == msg.bbox.center.position.y == DISABLE_TRACKING_REQUEST:
             self.tracking_request_msg = None
             self.tracking_active = False
             self.get_logger().info('Received stop tracking request')
@@ -152,26 +161,11 @@ class Tracker(Node):
         success, bbox = self.tracker.update(cv_image)
         # TODO: when tracker return success False ?
         if success:
-            w_change = h_change = False
             x, y, w, h = [int(v) for v in bbox]
-            if self.last_bbox_width is not None:
-                w_change =  abs(self.last_bbox_width-w) > 5
+            keep_last, w, h = self.tracker_gate_size_keeper( w, h)
+            if keep_last:
+                self.self_tracking_request(img_msg.header.stamp, x, y, w, h)
 
-            if self.last_bbox_height is not None:
-                h_change =  abs(self.last_bbox_height-h) > 5
-
-            if h_change or w_change:
-                self.get_logger().warning("tracker gate size change, request auto tracking")
-                w = self.last_bbox_width
-                h = self.last_bbox_height
-                self.tracking_first_time_request = True
-                
-                self.tracking_request_msg = Detection2D()
-                self.tracking_request_msg.header.stamp = img_msg.header.stamp
-                self.tracking_request_msg.bbox.center.position.x = x + w/2
-                self.tracking_request_msg.bbox.center.position.y = y + h/2
-                self.tracking_request_msg.bbox.size_x = float(w)
-                self.tracking_request_msg.bbox.size_y = float(h)
             self.last_bbox_width = w
             self.last_bbox_height = h
             result = Detection2D()
@@ -182,7 +176,7 @@ class Tracker(Node):
             result.bbox.size_x = float(w)
             result.bbox.size_y = float(h)
 
-            result.id = NANO_TRACKER_ID
+            result.id = TRACKER_ID
             # Add tracking score
             hypothesis = ObjectHypothesisWithPose()
             hypothesis.hypothesis.class_id = TRACKER_NAME
@@ -191,11 +185,43 @@ class Tracker(Node):
             
             self.track_pub.publish(result)
 
-            
-
         else:
             self.get_logger().warn('Lost tracking target')
             self.tracking_active = False
+
+    def tracker_gate_size_keeper(self, w: float, h: float) -> tuple:
+        """
+        check if tracker gate size changed too much
+        if so, keep last size and return request for auto tracking
+        """
+        keep_last = False
+        if self.last_bbox_width is not None:
+            
+            w_change =  abs(self.last_bbox_width-w) > MAX_GATE_SIZE_CHANGE_BETWEEN_TRACKING_RESULT
+
+        if self.last_bbox_height is not None:
+            h_change =  abs(self.last_bbox_height-h) > MAX_GATE_SIZE_CHANGE_BETWEEN_TRACKING_RESULT
+
+        if h_change or w_change:
+            self.get_logger().warning("tracker gate size change, request auto tracking")
+            w = self.last_bbox_width
+            h = self.last_bbox_height
+            
+            keep_last = True
+            
+        return keep_last,w,h
+
+    def self_tracking_request(self, stamp: MsgTime, x: float, y: float, w: float, h: float):
+        """
+        create self tracking request message with given parameters
+        """
+        self.tracking_request_msg = Detection2D()
+        self.tracking_request_msg.header.stamp = stamp
+        self.tracking_request_msg.bbox.center.position.x = x + w/2
+        self.tracking_request_msg.bbox.center.position.y = y + h/2
+        self.tracking_request_msg.bbox.size_x = float(w)
+        self.tracking_request_msg.bbox.size_y = float(h)
+        self.tracking_first_time_request = True
 
 
 
