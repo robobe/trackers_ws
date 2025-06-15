@@ -4,12 +4,14 @@ import rclpy
 from rclpy.time import Time
 
 from rclpy.qos import qos_profile_system_default
-
+from enum import IntEnum
+import numpy as np
 import cv2
 from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose
 from builtin_interfaces.msg import Time as MsgTime
 from trackers_base.tracker_base import TrackerBase
 from sensor_msgs.msg import Image
+from confidences import Fake_Confidence, LK_Confidence
 
 # from image_cache import ThreadSafeFixedCache
 MAX_GATE_SIZE_CHANGE_BETWEEN_TRACKING_RESULT = 5
@@ -22,16 +24,40 @@ MINIMAL_WIN_SIZE_H = 50.0
 PARAM_CACHE_SKIP_SIZE = "cache_skip_size"
 PARAM_GATE_SIZE_KEEPER = "gate_size_keeper"
 PARAM_GATE_SIZE_KEEPER_ENABLED = "gate_size_keeper_enabled"
+PARAM_CONFIDENCE_TYPE = "confidence_type"
 
 NODE_NAME = "csrt_tracker_node"
+
+
+    
+
+
+class ConfidenceType(IntEnum):
+    DISABLED = 0
+    LK = 1
+    
+
+        
 
 class Tracker(TrackerBase):
     def __init__(self):
         super().__init__(NODE_NAME)
         self._read_parameters()
+        self.confidence = self._load_confidence()
         self.get_logger().info(f'{self.get_name()} started')
 
     #region private
+    def _load_confidence(self):
+        """
+        load confidence class based on the selected method
+        """
+        if self.confidence_type == ConfidenceType.DISABLED.value:
+            return Fake_Confidence()
+        elif self.confidence_type == ConfidenceType.LK.value:
+            return LK_Confidence()
+        else:
+            raise ValueError(f"Unsupported confidence type: {self.confidence_type}")
+        
     def _read_parameters(self):
         """
         read parameters from node
@@ -42,13 +68,16 @@ class Tracker(TrackerBase):
         self.gate_size_keeper_enabled = self.get_parameter(PARAM_GATE_SIZE_KEEPER_ENABLED).get_parameter_value().bool_value
         self.get_logger().info(f'Gate size keeper enabled: {self.gate_size_keeper_enabled}')
         
-        self.gate_size_keeper = self.get_parameter(PARAM_GATE_SIZE_KEEPER).get_parameter_value().double_value
+        self.gate_size_keeper = self.get_parameter(PARAM_GATE_SIZE_KEEPER).get_parameter_value().integer_value
         self.get_logger().info(f'Gate size keeper value: {self.gate_size_keeper}')
+
+        self.confidence_type = self.get_parameter(PARAM_CONFIDENCE_TYPE).get_parameter_value().integer_value
         
     def _init_parameters(self):
         self.declare_parameter(PARAM_CACHE_SKIP_SIZE, 1)
         self.declare_parameter(PARAM_GATE_SIZE_KEEPER, MAX_GATE_SIZE_CHANGE_BETWEEN_TRACKING_RESULT)
         self.declare_parameter(PARAM_GATE_SIZE_KEEPER_ENABLED, True)
+        self.declare_parameter(PARAM_CONFIDENCE_TYPE, ConfidenceType.LK.value)
 
     def _create_tracker(self):
         """
@@ -59,6 +88,7 @@ class Tracker(TrackerBase):
         params.scale_lr = 0.5
         tracker = cv2.TrackerCSRT.create(params)
         return tracker
+    
     #endregion
 
     #region handlers
@@ -132,10 +162,14 @@ class Tracker(TrackerBase):
                 # self.tracking_active = False
                 # return
 
+            if success:
+                self.confidence.init(cv_image, bbox)
+
         success, bbox = self.tracker.update(cv_image)
         # TODO: when tracker return success False ?
         if success:
             x, y, w, h = [int(v) for v in bbox]
+            confidence = self.confidence.get_confidence(cv_image, bbox)
             if self.gate_size_keeper_enabled:
                 keep_last, w, h = self.tracker_gate_size_keeper( w, h)
                 if keep_last:
@@ -156,7 +190,7 @@ class Tracker(TrackerBase):
             # Add tracking score
             hypothesis = ObjectHypothesisWithPose()
             hypothesis.hypothesis.class_id = TRACKER_NAME
-            hypothesis.hypothesis.score = 100.0#float(self.tracker.getTrackingScore())  # Get score from NanoTracker
+            hypothesis.hypothesis.score = confidence
             result.results.append(hypothesis)
             
             self.track_pub.publish(result)
@@ -216,7 +250,6 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-        cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
