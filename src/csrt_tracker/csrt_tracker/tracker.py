@@ -20,20 +20,35 @@ MINIMAL_WIN_SIZE_W = 50.0
 MINIMAL_WIN_SIZE_H = 50.0
 
 PARAM_CACHE_SKIP_SIZE = "cache_skip_size"
+PARAM_GATE_SIZE_KEEPER = "gate_size_keeper"
+PARAM_GATE_SIZE_KEEPER_ENABLED = "gate_size_keeper_enabled"
 
 NODE_NAME = "csrt_tracker_node"
 
 class Tracker(TrackerBase):
     def __init__(self):
         super().__init__(NODE_NAME)
-        self.cache_skip_size = self.get_parameter(PARAM_CACHE_SKIP_SIZE).get_parameter_value().integer_value
+        self._read_parameters()
         self.get_logger().info(f'{self.get_name()} started')
 
     #region private
-
+    def _read_parameters(self):
+        """
+        read parameters from node
+        """
+        self.cache_skip_size = self.get_parameter(PARAM_CACHE_SKIP_SIZE).get_parameter_value().integer_value
+        self.get_logger().info(f'Cache skip size: {self.cache_skip_size}')
+        
+        self.gate_size_keeper_enabled = self.get_parameter(PARAM_GATE_SIZE_KEEPER_ENABLED).get_parameter_value().bool_value
+        self.get_logger().info(f'Gate size keeper enabled: {self.gate_size_keeper_enabled}')
+        
+        self.gate_size_keeper = self.get_parameter(PARAM_GATE_SIZE_KEEPER).get_parameter_value().double_value
+        self.get_logger().info(f'Gate size keeper value: {self.gate_size_keeper}')
         
     def _init_parameters(self):
         self.declare_parameter(PARAM_CACHE_SKIP_SIZE, 1)
+        self.declare_parameter(PARAM_GATE_SIZE_KEEPER, MAX_GATE_SIZE_CHANGE_BETWEEN_TRACKING_RESULT)
+        self.declare_parameter(PARAM_GATE_SIZE_KEEPER_ENABLED, True)
 
     def _create_tracker(self):
         """
@@ -121,10 +136,11 @@ class Tracker(TrackerBase):
         # TODO: when tracker return success False ?
         if success:
             x, y, w, h = [int(v) for v in bbox]
-            keep_last, w, h = self.tracker_gate_size_keeper( w, h)
-            if keep_last:
-                self.get_logger().warning(f"Keeping last tracker gate size on key {key}")
-                self.self_tracking_request(img_msg.header.stamp, x, y, w, h)
+            if self.gate_size_keeper_enabled:
+                keep_last, w, h = self.tracker_gate_size_keeper( w, h)
+                if keep_last:
+                    self.get_logger().warning(f"Keeping last tracker gate size on key {key}")
+                    self.self_tracking_request(img_msg.header.stamp, x, y, w, h)
 
             self.last_bbox_width = w
             self.last_bbox_height = h
@@ -158,10 +174,10 @@ class Tracker(TrackerBase):
         keep_last = False
         if self.last_bbox_width is not None:
             
-            w_change =  abs(self.last_bbox_width-w) > MAX_GATE_SIZE_CHANGE_BETWEEN_TRACKING_RESULT
+            w_change =  abs(self.last_bbox_width-w) > self.gate_size_keeper
 
         if self.last_bbox_height is not None:
-            h_change =  abs(self.last_bbox_height-h) > MAX_GATE_SIZE_CHANGE_BETWEEN_TRACKING_RESULT
+            h_change =  abs(self.last_bbox_height-h) > self.gate_size_keeper
 
         if h_change or w_change:
             self.get_logger().warning("tracker gate size change, request auto tracking")
