@@ -1,3 +1,10 @@
+# ROS2 Trackers
+
+Main repository for ROS2 trackers.
+- Tracker base on opencv nano tracker
+- Tracker base on opencv optical flow tracker
+- Tracker base on opencv nvidia optical flow tracker
+
 ```
 colcon build --packages-up-to cv_bridge \
 --cmake-args \
